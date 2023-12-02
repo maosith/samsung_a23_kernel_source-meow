@@ -33,6 +33,9 @@
 
 #include <asm/barrier.h>
 #include <asm/unaligned.h>
+#ifdef CONFIG_RKP
+#include <linux/rkp.h>
+#endif
 
 /* Registers */
 #define BPF_R0	regs[BPF_REG_0]
@@ -797,6 +800,14 @@ void __weak bpf_jit_free_exec(void *addr)
 	module_memfree(addr);
 }
 
+#if IS_ENABLED(CONFIG_BPF_JIT) && IS_ENABLED(CONFIG_CFI_CLANG)
+bool __weak arch_bpf_jit_check_func(const struct bpf_prog *prog)
+{
+	return true;
+}
+EXPORT_SYMBOL_GPL(arch_bpf_jit_check_func);
+#endif
+
 struct bpf_binary_header *
 bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 		     unsigned int alignment,
@@ -823,6 +834,7 @@ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 	/* Fill space with illegal/arch-dep instructions. */
 	bpf_fill_ill_insns(hdr, size);
 
+	bpf_jit_set_header_magic(hdr);
 	hdr->pages = pages;
 	hole = min_t(unsigned int, size - (proglen + sizeof(*hdr)),
 		     PAGE_SIZE - sizeof(*hdr));
@@ -837,6 +849,10 @@ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 void bpf_jit_binary_free(struct bpf_binary_header *hdr)
 {
 	u32 pages = hdr->pages;
+
+#ifdef CONFIG_RKP
+	uh_call(UH_APP_RKP, RKP_BPF_LOAD, (u64)hdr, (u64)(hdr->pages * PAGE_SIZE), 1, 0);
+#endif
 
 	bpf_jit_free_exec(hdr);
 	bpf_jit_uncharge_modmem(pages);
@@ -2081,6 +2097,7 @@ const struct bpf_func_proto bpf_get_prandom_u32_proto __weak;
 const struct bpf_func_proto bpf_get_smp_processor_id_proto __weak;
 const struct bpf_func_proto bpf_get_numa_node_id_proto __weak;
 const struct bpf_func_proto bpf_ktime_get_ns_proto __weak;
+const struct bpf_func_proto bpf_ktime_get_boot_ns_proto __weak;
 
 const struct bpf_func_proto bpf_get_current_pid_tgid_proto __weak;
 const struct bpf_func_proto bpf_get_current_uid_gid_proto __weak;

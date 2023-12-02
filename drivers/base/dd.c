@@ -31,6 +31,8 @@
 #include "base.h"
 #include "power/power.h"
 
+#include <linux/samsung/debug/sec_kboot_stat.h>
+
 /*
  * Deferred Probe infrastructure.
  *
@@ -179,7 +181,7 @@ static void driver_deferred_probe_trigger(void)
 	 * Kick the re-probe thread.  It may already be scheduled, but it is
 	 * safe to kick it again.
 	 */
-	schedule_work(&deferred_probe_work);
+	queue_work(system_unbound_wq, &deferred_probe_work);
 }
 
 /**
@@ -491,6 +493,18 @@ static void driver_deferred_probe_add_trigger(struct device *dev,
 		driver_deferred_probe_trigger();
 }
 
+static ssize_t state_synced_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	bool val;
+
+	device_lock(dev);
+	val = dev->state_synced;
+	device_unlock(dev);
+	return sprintf(buf, "%u\n", val);
+}
+static DEVICE_ATTR_RO(state_synced);
+
 static int really_probe(struct device *dev, struct device_driver *drv)
 {
 	int ret = -EPROBE_DEFER;
@@ -565,9 +579,16 @@ re_probe:
 		goto dev_groups_failed;
 	}
 
+	if (dev_has_sync_state(dev) &&
+	    device_create_file(dev, &dev_attr_state_synced)) {
+		dev_err(dev, "state_synced sysfs add failed\n");
+		goto dev_sysfs_state_synced_failed;
+	}
+
 	if (test_remove) {
 		test_remove = false;
 
+		device_remove_file(dev, &dev_attr_state_synced);
 		device_remove_groups(dev, drv->dev_groups);
 
 		if (dev->bus->remove)
@@ -597,6 +618,8 @@ re_probe:
 		 drv->bus->name, __func__, dev_name(dev), drv->name);
 	goto done;
 
+dev_sysfs_state_synced_failed:
+	device_remove_groups(dev, drv->dev_groups);
 dev_groups_failed:
 	if (dev->bus->remove)
 		dev->bus->remove(dev);
@@ -724,7 +747,7 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
 	if (initcall_debug)
 		ret = really_probe_debug(dev, drv);
 	else
-		ret = really_probe(dev, drv);
+		ret = sec_probe_debug(really_probe, dev, drv);
 	pm_request_idle(dev);
 
 	if (dev->parent)
@@ -1138,6 +1161,7 @@ static void __device_release_driver(struct device *dev, struct device *parent)
 
 		pm_runtime_put_sync(dev);
 
+		device_remove_file(dev, &dev_attr_state_synced);
 		device_remove_groups(dev, drv->dev_groups);
 
 		if (dev->bus && dev->bus->remove)

@@ -78,9 +78,28 @@ static struct pm_qos_object cpu_dma_pm_qos = {
 	.name = "cpu_dma_latency",
 };
 
+#if IS_ENABLED(CONFIG_SEC_INPUT_BOOSTER)
+static BLOCKING_NOTIFIER_HEAD(bias_hyst_notifier);
+static struct pm_qos_constraints bias_hyst_constraints = {
+	.list = PLIST_HEAD_INIT(bias_hyst_constraints.list),
+	.target_value = PM_QOS_BIAS_HYST_DEFAULT_VALUE,
+	.default_value = PM_QOS_BIAS_HYST_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_BIAS_HYST_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &bias_hyst_notifier,
+};
+static struct pm_qos_object bias_hyst_pm_qos = {
+	.constraints = &bias_hyst_constraints,
+	.name = "bias_hyst",
+};
+#endif
+
 static struct pm_qos_object *pm_qos_array[] = {
 	&null_pm_qos,
 	&cpu_dma_pm_qos,
+#if IS_ENABLED(CONFIG_SEC_INPUT_BOOSTER)
+	&bias_hyst_pm_qos,
+#endif
 };
 
 static ssize_t pm_qos_power_write(struct file *filp, const char __user *buf,
@@ -714,8 +733,10 @@ s32 freq_qos_read_value(struct freq_constraints *qos,
  * @req: Constraint request to apply.
  * @action: Action to perform (add/update/remove).
  * @value: Value to assign to the QoS request.
+ *
+ * This is only meant to be called from inside pm_qos, not drivers.
  */
-static int freq_qos_apply(struct freq_qos_request *req,
+int freq_qos_apply(struct freq_qos_request *req,
 			  enum pm_qos_req_action action, s32 value)
 {
 	int ret;
