@@ -57,7 +57,7 @@
 #define DSC_CLK_CTRL               0x0C
 
 
-static int _dsc_calc_ob_max_addr(struct sde_hw_dsc *hw_dsc, int num_ss)
+ int _dsc_calc_ob_max_addr(struct sde_hw_dsc *hw_dsc, int num_ss)
 {
 	enum sde_dsc idx;
 
@@ -77,7 +77,7 @@ static int _dsc_calc_ob_max_addr(struct sde_hw_dsc *hw_dsc, int num_ss)
 	return 0;
 }
 
-static inline _dsc_subblk_offset(struct sde_hw_dsc *hw_dsc, int s_id,
+int _dsc_subblk_offset(struct sde_hw_dsc *hw_dsc, int s_id,
 		u32 *idx)
 {
 	const struct sde_dsc_sub_blks *sblk;
