@@ -15,7 +15,7 @@ do.modules=0
 do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
-device.name1=r8q
+device.name1=a23xq
 device.name2=
 device.name3=
 device.name4=
@@ -24,10 +24,11 @@ supported.versions=
 supported.patchlevels=
 '; } # end properties
 
-# shell variables
-block=/dev/block/platform/soc/1d84000.ufshc/by-name/boot;
+# boot shell variables
+block=/dev/block/by-name/boot
 is_slot_device=0;
 ramdisk_compression=auto;
+patch_vbmeta_flag=auto;
 
 
 ## AnyKernel methods (DO NOT CHANGE)
